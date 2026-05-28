@@ -10,4 +10,3 @@ def test_add_zero():
     assert add(0, 6)==6
 
 
-
