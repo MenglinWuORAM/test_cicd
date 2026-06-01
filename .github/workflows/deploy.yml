@@ -9,7 +9,7 @@ permissions:
 
 env:
   IMAGE_NAME: test_cicd
-  DOCKERHUB_REPO: ${{ vars.DOCKERHUB_USERNAME }}/test_cicd
+  DOCKERHUB_REPO: ${{ secrets.DOCKERHUB_USERNAME }}/test_cicd
 
 jobs:
   deploy:
