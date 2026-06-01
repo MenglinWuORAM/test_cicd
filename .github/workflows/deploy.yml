@@ -56,6 +56,7 @@ jobs:
           file: ./Dockerfile
           target: prod
           push: true
+          load: true            # load local ones
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/test_cicd:${{ steps.image_tag.outputs.image_tag }}
             ${{ secrets.DOCKERHUB_USERNAME }}/test_cicd:latest
