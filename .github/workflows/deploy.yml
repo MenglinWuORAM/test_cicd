@@ -24,7 +24,7 @@ jobs:
           release_branches: main
           default_bump: patch
           dry_run: true
-
+      #
       - name: Compute Docker image tag
         id: image_tag
         shell: powershell
