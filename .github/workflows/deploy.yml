@@ -9,6 +9,7 @@ env:
 jobs:
   deploy:
     runs-on: self-hosted
+    #
     steps:
       - name: Checkout repository with full history
         uses: actions/checkout@v4
