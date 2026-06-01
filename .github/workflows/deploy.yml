@@ -32,27 +32,25 @@ jobs:
 
       - name: Compute Docker image tag
         id: image_tag
-        shell: bash
+        shell: pwsh
         run: |
-          set -e
+          $NewTag = "${{ steps.tag_version.outputs.new_tag }}"
+          $Semver = $NewTag.TrimStart("v")
+          $ShortSha = "${{ github.sha }}".Substring(0, 7)
+          $ImageTag = "$Semver-$ShortSha"
 
-          NEW_TAG="${{ steps.tag_version.outputs.new_tag }}"
-          SEMVER="${NEW_TAG#v}"
-          SHORT_SHA="$(echo $GITHUB_SHA | cut -c1-7)"
-          IMAGE_TAG="${SEMVER}-${SHORT_SHA}"
+          "new_tag=$NewTag" >> $env:GITHUB_OUTPUT
+          "semver=$Semver" >> $env:GITHUB_OUTPUT
+          "short_sha=$ShortSha" >> $env:GITHUB_OUTPUT
+          "image_tag=$ImageTag" >> $env:GITHUB_OUTPUT
 
-          echo "new_tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
-          echo "semver=${SEMVER}" >> "$GITHUB_OUTPUT"
-          echo "short_sha=${SHORT_SHA}" >> "$GITHUB_OUTPUT"
-          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
-
-          echo "Git tag: ${NEW_TAG}"
-          echo "Docker image tag: ${IMAGE_TAG}"
+          Write-Host "Git tag: $NewTag"
+          Write-Host "Docker image tag: $ImageTag"
 
       - name: Login to Docker Hub
         uses: docker/login-action@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: ${{ vars.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push production image
@@ -67,7 +65,8 @@ jobs:
             ${{ env.DOCKERHUB_REPO }}:latest
 
       - name: Print deploy summary
+        shell: pwsh
         run: |
-          echo "Pushed Docker image:"
-          echo "${{ env.DOCKERHUB_REPO }}:${{ steps.image_tag.outputs.image_tag }}"
-          echo "${{ env.DOCKERHUB_REPO }}:latest"
+          Write-Host "Pushed Docker image:"
+          Write-Host "${{ env.DOCKERHUB_REPO }}:${{ steps.image_tag.outputs.image_tag }}"
+          Write-Host "${{ env.DOCKERHUB_REPO }}:latest"
