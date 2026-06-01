@@ -46,7 +46,7 @@ jobs:
       - name: Login to Docker Hub
         uses: docker/login-action@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          username: menglinwu5
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push production image
@@ -57,12 +57,12 @@ jobs:
           target: prod
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/test_cicd:${{ steps.image_tag.outputs.image_tag }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/test_cicd:latest
+            menglinwu5/test_cicd:${{ steps.image_tag.outputs.image_tag }}
+            menglinwu5/test_cicd:latest
 
       - name: Print deploy summary
         shell: powershell
         run: |
           Write-Host "Pushed Docker image:"
-          Write-Host "${{ secrets.DOCKERHUB_USERNAME }}/test_cicd:${{ steps.image_tag.outputs.image_tag }}"
-          Write-Host "${{ secrets.DOCKERHUB_USERNAME }}/test_cicd:latest"
+          Write-Host "menglinwu5/test_cicd:${{ steps.image_tag.outputs.image_tag }}"
+          Write-Host "menglinwu5/test_cicd:latest"
