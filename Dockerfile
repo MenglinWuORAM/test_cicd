@@ -9,5 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY tests/ ./tests/
 
+FROM base AS prod
+
 CMD ["pytest", "--cov=src", "--cov-fail-under=80", "-v"]
  
