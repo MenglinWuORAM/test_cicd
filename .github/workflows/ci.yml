@@ -1,22 +1,21 @@
 name: CI
- 
+
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
- 
+
 jobs:
   test:
-    runs-on: self-hosted         
+    runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v4  # download the code to runner.
- 
-      # build test image
+      - uses: actions/checkout@v5
+
+      # build test image (multi-stage test stage)
       - name: Build test image
         run: docker build --target test -t test_cicd:test .
- 
-      # run unit-tests
-      - name: Run unit tests
+
+      # run unit tests + coverage gate inside the container
+      - name: Run tests
         run: docker run --rm test_cicd:test
- 
