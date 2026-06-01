@@ -1,46 +1,46 @@
-name: release-please
-
+name: Deploy
 on:
   push:
     branches: [main]
-
 permissions:
   contents: write
-  issues: write
-  pull-requests: write
-
+env:
+  IMAGE_NAME: test_cicd
 jobs:
-  # Job 1: manage version + Release PR + tag/release
-  release-please:
-    runs-on: self-hosted
-    outputs:
-      release_created: ${{ steps.release.outputs.release_created }}
-      tag_name: ${{ steps.release.outputs.tag_name }}
-    steps:
-      - uses: googleapis/release-please-action@v4
-        id: release
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          release-type: simple
-
-  # Job 2: only runs when a release was actually created (Release PR merged)
   deploy:
-    needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout repository with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: Compute image tag
+      - name: Compute next semver (dry run)
+        id: tag_dry
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag_prefix: v
+          release_branches: main
+          default_bump: patch
+          dry_run: true
+
+      - name: Compute Docker image tag
         id: image_tag
         shell: powershell
         run: |
-          $TagName = "${{ needs.release-please.outputs.tag_name }}"
-          $Semver = $TagName.TrimStart("v")
+          $NewTag = "${{ steps.tag_dry.outputs.new_tag }}"
+          if ([string]::IsNullOrWhiteSpace($NewTag)) {
+            Write-Error "No new version computed. Check commit message or default_bump setting."
+            exit 1
+          }
+          $Semver = $NewTag.TrimStart("v")
           $ShortSha = "${{ github.sha }}".Substring(0, 7)
           $ImageTag = "$Semver-$ShortSha"
+          "new_tag=$NewTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "semver=$Semver" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "image_tag=$ImageTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          Write-Host "Tag: $TagName"
+          Write-Host "Computed git tag: $NewTag"
           Write-Host "Docker image tag: $ImageTag"
 
       - name: Login to Docker Hub
@@ -56,6 +56,25 @@ jobs:
           file: ./Dockerfile
           target: prod
           push: true
+          load: true            # load local ones
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/test_cicd:${{ steps.image_tag.outputs.image_tag }}
             ${{ secrets.DOCKERHUB_USERNAME }}/test_cicd:latest
+
+      # create new git tag
+      - name: Create git tag (after successful push)
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag_prefix: v
+          release_branches: main
+          default_bump: patch
+          custom_tag: ${{ steps.image_tag.outputs.semver }}   # reuse the version computed in step 1
+
+      - name: Print deploy summary
+        shell: powershell
+        run: |
+          Write-Host "Pushed Docker image:"
+          Write-Host "${{ secrets.DOCKERHUB_USERNAME }}/test_cicd:${{ steps.image_tag.outputs.image_tag }}"
+          Write-Host "${{ secrets.DOCKERHUB_USERNAME }}/test_cicd:latest"
+          Write-Host "Git tag created: ${{ steps.image_tag.outputs.new_tag }}"
