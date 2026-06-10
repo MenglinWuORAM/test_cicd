@@ -3,7 +3,7 @@ requires = ["setuptools>=69"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "selection-demo"
+name = "oram-main"
 version = "0.0.1"  # informational only -- real versioning lives in git tags (vX.Y.Z)
 description = "CI/CD demo: docstring-based test selection + diff-coverage gate"
 readme = "README.md"

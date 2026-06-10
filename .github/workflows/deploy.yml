@@ -3,7 +3,7 @@ on:
   push:
     branches: [main]
 env:
-  IMAGE_NAME: selection-demo
+  IMAGE_NAME: oram-main
 
 # All steps run under Windows PowerShell on the self-hosted Windows runner.
 defaults:
@@ -51,5 +51,5 @@ jobs:
     runs-on: self-hosted          # deliberately NOT gating deploy
     steps:
       - uses: actions/checkout@v4
-      - run: docker build --target test -t selection-demo:shadow .
-      - run: docker run --rm selection-demo:shadow pytest tests
+      - run: docker build --target test -t oram-main:shadow .
+      - run: docker run --rm oram-main:shadow pytest tests

@@ -29,7 +29,7 @@ jobs:
         with: { fetch-depth: 0 }
 
       - name: Build test image
-        run: docker build --target test -t selection-demo:test .
+        run: docker build --target test -t oram-main:test .
 
       - name: Select tests
         id: select
@@ -54,7 +54,7 @@ jobs:
           # so pytest receives each target as its own argument.
           # Cover both the package and the tooling, so a scripts/ change has its
           # own changed lines measured by the gate (otherwise they read as 0%).
-          docker run --rm -v "${PWD}:/out" selection-demo:test sh -c "pytest $T --cov=quant_core --cov=scripts --cov-report=xml:/out/coverage.xml"
+          docker run --rm -v "${PWD}:/out" oram-main:test sh -c "pytest $T --cov=quant_core --cov=scripts --cov-report=xml:/out/coverage.xml"
 
       - name: Diff coverage gate (50%)
         run: |
@@ -76,8 +76,8 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
-      - run: docker build --target test -t selection-demo:test .
-      - run: docker run --rm selection-demo:test pytest tests/integration
+      - run: docker build --target test -t oram-main:test .
+      - run: docker run --rm oram-main:test pytest tests/integration
 
   version-bump:
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'

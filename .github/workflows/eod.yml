@@ -1,23 +1,26 @@
-name: EOD
-on:
+name: EOD-test
+
+on: 
   schedule:
-    - cron: "0 22 * * 1-5"   # 22:00 UTC, Mon-Fri
+    - cron: "0 23 * * *"  # UTC 23:00 everyday
   workflow_dispatch: {}
 
-# All steps run under Windows PowerShell on the self-hosted Windows runner.
 defaults:
   run:
     shell: powershell
 
 jobs:
-  full:
+  full-test:
     runs-on: self-hosted
+    strategy:
+      fail-fast: false
+      matrix: 
+        branch: [dev, main]
     steps:
-      - name: Checkout dev
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: ${{ matrix.branch }}
       - name: Build test image
-        run: docker build --target test -t selection-demo:eod .
-      - name: Run full suite (unit + integration)
-        run: docker run --rm selection-demo:eod pytest tests
+        run: docker build --target test -t "oram-main:eod_test-${{ matrix.branch }}" .
+      - name: Run full tests
+        run: docker run --rm "oram-main:eod_test-${{ matrix.branch }}"

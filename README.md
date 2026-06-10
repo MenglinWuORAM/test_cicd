@@ -1,4 +1,4 @@
-# selection-demo
+# oram-main
 
 A small, immediately runnable CI/CD demo for a **self-hosted Windows runner**
 with a **local Docker daemon**. There is no external registry and no repository
@@ -104,15 +104,15 @@ separately.
 
 ```powershell
 # full suite in the test image (what shadow/integration/EOD run)
-docker build --target test -t selection-demo:test .
-docker run --rm selection-demo:test pytest          # 24 passed (py3.12)
+docker build --target test -t oram-main:test .
+docker run --rm oram-main:test pytest          # 24 passed (py3.12)
 
 # selection script against a base ref (three-dot diff)
 python scripts/select_tests.py origin/dev           # prints targets or NONE
 
 # prod image sanity
-docker build --target prod -t selection-demo:prod .
-docker run --rm selection-demo:prod                 # "prod image ok: quant_core"
+docker build --target prod -t oram-main:prod .
+docker run --rm oram-main:prod                 # "prod image ok: quant_core"
 ```
 
 ---
@@ -175,8 +175,8 @@ Open a **PR → main from a feature branch** — `guard-main-source` rejects it
 Merge to `main`. `deploy.yml` resolves the version from the `dev` tag
 (`git describe`), builds the **prod** image, and tags it on the local daemon:
 ```
-selection-demo:vX.Y.Z-<sha7>
-selection-demo:latest
+oram-main:vX.Y.Z-<sha7>
+oram-main:latest
 ```
 Verify with `docker images`. `shadow-test` (full unit + integration) runs
 alongside and does **not** gate the deploy.
@@ -189,9 +189,9 @@ If the shadow suite is **red** after a deploy:
 1. `git revert` the merge commit on `main` (which triggers a fresh deploy), and
 2. retag `latest` locally to the previous good image:
    ```powershell
-   docker tag selection-demo:vPREV-<sha7> selection-demo:latest
+   docker tag oram-main:vPREV-<sha7> oram-main:latest
    ```
-> Note: consumers that pin an exact version tag (`selection-demo:vX.Y.Z-<sha7>`)
+> Note: consumers that pin an exact version tag (`oram-main:vX.Y.Z-<sha7>`)
 > never see a bad `latest`, which makes the retag step unnecessary for them.
 
 ---
@@ -199,7 +199,7 @@ If the shadow suite is **red** after a deploy:
 ## Layout
 
 ```
-selection-demo/
+oram-main/
 ├── README.md
 ├── pyproject.toml                 # setuptools, static 0.0.1, dev deps, coverage paths
 ├── Dockerfile                     # base → test → prod
