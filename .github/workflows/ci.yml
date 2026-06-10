@@ -5,7 +5,6 @@ on:
   push:
     branches: [dev]
 
-# All steps run under Windows PowerShell on the self-hosted Windows runner.
 defaults:
   run:
     shell: powershell
@@ -53,7 +52,9 @@ jobs:
           # directly. $T is a space-separated list; it is interpolated into the
           # single sh -c string and the container's sh does the word-splitting,
           # so pytest receives each target as its own argument.
-          docker run --rm -v "${PWD}:/out" selection-demo:test sh -c "pytest $T --cov=quant_core --cov-report=xml:/out/coverage.xml"
+          # Cover both the package and the tooling, so a scripts/ change has its
+          # own changed lines measured by the gate (otherwise they read as 0%).
+          docker run --rm -v "${PWD}:/out" selection-demo:test sh -c "pytest $T --cov=quant_core --cov=scripts --cov-report=xml:/out/coverage.xml"
 
       - name: Diff coverage gate (50%)
         run: |

@@ -60,11 +60,15 @@ become pytest `::` node ids. For example
 * **No full fallback.** `helpers.py` has no `Tests:` block, so a change to it
   selects *only* its mirror. This is deliberate: discipline plus the coverage
   gate keep changes honest about what they touch.
-* Infra / docs / config changes contribute **nothing** at PR level.
+* **Tooling under `scripts/`** has no mirror, but it declares its own tests via
+  the same `Tests:` block (annotation-only). So a change to `select_tests.py`
+  itself selects `tests/tooling/test_select.py` — the tooling tests its own
+  tooling.
+* Other infra / docs / config changes contribute **nothing** at PR level.
 
 Extraction is **AST-based** (`ast.get_docstring`), never regex over raw source.
-The pure classifier `classify()` lives in `scripts/select_tests.py` and is
-unit-tested in `tests/unit/quant_core/test_select.py`.
+The pure classifier `select_target_tests()` lives in `scripts/select_tests.py` and is
+tested in `tests/tooling/test_select.py`.
 
 ---
 
@@ -101,7 +105,7 @@ separately.
 ```powershell
 # full suite in the test image (what shadow/integration/EOD run)
 docker build --target test -t selection-demo:test .
-docker run --rm selection-demo:test pytest          # 21 passed (py3.12)
+docker run --rm selection-demo:test pytest          # 24 passed (py3.12)
 
 # selection script against a base ref (three-dot diff)
 python scripts/select_tests.py origin/dev           # prints targets or NONE
@@ -200,7 +204,7 @@ selection-demo/
 ├── pyproject.toml                 # setuptools, static 0.0.1, dev deps, coverage paths
 ├── Dockerfile                     # base → test → prod
 ├── .dockerignore / .gitignore
-├── scripts/select_tests.py        # stdlib-only selection script (pure classify())
+├── scripts/select_tests.py        # stdlib-only selection script (pure select_target_tests())
 ├── .github/workflows/
 │   ├── ci.yml                     # scenarios 1, 2, 3
 │   ├── deploy.yml                 # scenario 4 (deploy + shadow)
@@ -210,6 +214,7 @@ selection-demo/
 │   ├── mul.py                     # Tests: block present but EMPTY
 │   └── helpers.py                 # NO Tests: block (discipline demo)
 └── tests/
-    ├── unit/quant_core/           # mirrors + test_combo + test_select
+    ├── unit/quant_core/           # mirrors (test_add/mul/helpers) + test_combo
+    ├── tooling/test_select.py     # tests the selection script itself
     └── integration/test_slow.py   # add+mul, time.sleep(2); real repos: external services
 ```
