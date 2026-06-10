@@ -1,9 +1,0 @@
-name: Smoke test
-on:
-  workflow_dispatch:
-jobs:
-  check:
-    runs-on: self-hosted
-    steps:
-      - run: docker version
-      - run: docker run --rm hello-world

@@ -1,21 +1,80 @@
 name: CI
-
 on:
   pull_request:
-    branches: [main]
+    branches: [dev, main]
   push:
-    branches: [main]
-
+    branches: [dev]
 jobs:
-  test:
+  guard-main-source:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: self-hosted
     steps:
-      - uses: actions/checkout@v5
+      - name: Reject non-dev sources
+        shell: bash
+        run: |
+          if [ "${{ github.head_ref }}" != "dev" ]; then
+            echo "PRs to main must come from dev"; exit 1
+          fi
 
-      # build test image (multi-stage test stage)
+  selective-tests:
+    if: github.event_name == 'pull_request' && github.base_ref == 'dev'
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - name: Build test image
-        run: docker build --target test -t test_cicd:test .
+        shell: bash
+        run: docker build --target test -t selection-demo:test .
+      - name: Select tests
+        id: select
+        shell: bash
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          TARGETS=$(python scripts/select_tests.py origin/${{ github.base_ref }})
+          echo "Selected: $TARGETS"
+          echo "targets=$TARGETS" >> "$GITHUB_OUTPUT"
+      - name: Run selected tests with coverage
+        shell: bash
+        run: |
+          T="${{ steps.select.outputs.targets }}"
+          if [ "$T" = "NONE" ]; then echo "Nothing selected"; exit 0; fi
+          # pwd -W yields a Windows path (C:/...) so Docker Desktop / the local
+          # daemon mounts it correctly; Git Bash would otherwise mangle $PWD.
+          docker run --rm -v "$(pwd -W)":/out selection-demo:test sh -c "\
+            pytest $T --cov=quant_core --cov-report=xml:/out/coverage.xml"
+      - name: Diff coverage gate (50%)
+        shell: bash
+        run: |
+          T="${{ steps.select.outputs.targets }}"
+          if [ "$T" = "NONE" ]; then exit 0; fi
+          pip install diff-cover
+          git fetch origin ${{ github.base_ref }}
+          diff-cover coverage.xml --compare-branch=origin/${{ github.base_ref }} \
+            --fail-under=50 --markdown-report diff_cover.md
+          cat diff_cover.md >> "$GITHUB_STEP_SUMMARY"
 
-      # run unit tests + coverage gate inside the container
-      - name: Run tests
-        run: docker run --rm test_cicd:test
+  integration-full:
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    needs: guard-main-source
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: docker build --target test -t selection-demo:test .
+      - shell: bash
+        run: docker run --rm selection-demo:test pytest tests/integration
+
+  version-bump:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+    runs-on: self-hosted
+    permissions: { contents: write }
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Bump version tag
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          tag_prefix: v
+          release_branches: dev
+          default_bump: patch

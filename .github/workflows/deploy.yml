@@ -2,80 +2,53 @@ name: Deploy
 on:
   push:
     branches: [main]
-permissions:
-  contents: write
 env:
-  IMAGE_NAME: test_cicd
+  IMAGE_NAME: selection-demo
 jobs:
   deploy:
     runs-on: self-hosted
-    #
     steps:
       - name: Checkout repository with full history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
-      - name: Compute next semver (dry run)
-        id: tag_dry
-        uses: mathieudutour/github-tag-action@v6.2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          tag_prefix: v
-          release_branches: main
-          default_bump: patch
-          dry_run: true
 
-      - name: Compute Docker image tag
-        id: image_tag
+      - name: Resolve version from dev tag
+        id: ver
         shell: powershell
         run: |
-          $NewTag = "${{ steps.tag_dry.outputs.new_tag }}"
-          if ([string]::IsNullOrWhiteSpace($NewTag)) {
-            Write-Error "No new version computed. Check commit message or default_bump setting."
+          $Version = git describe --tags --abbrev=0 --match "v*"
+          if ([string]::IsNullOrWhiteSpace($Version)) {
+            Write-Error "No version tag reachable. Was the dev version-bump job skipped?"
             exit 1
           }
-          $Semver = $NewTag.TrimStart("v")
           $ShortSha = "${{ github.sha }}".Substring(0, 7)
-          $ImageTag = "$Semver-$ShortSha"
-          "new_tag=$NewTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          "semver=$Semver" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          $ImageTag = "$Version-$ShortSha"
+          "version=$Version"  | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
           "image_tag=$ImageTag" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          Write-Host "Computed git tag: $NewTag"
+          Write-Host "Resolved version: $Version"
           Write-Host "Docker image tag: $ImageTag"
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and push production image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./Dockerfile
-          target: prod
-          push: true
-          load: true            # load local ones
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/test_cicd:${{ steps.image_tag.outputs.image_tag }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/test_cicd:latest
-
-      # create new git tag
-      - name: Create git tag (after successful push)
-        uses: mathieudutour/github-tag-action@v6.2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          tag_prefix: v
-          release_branches: main
-          default_bump: patch
-          custom_tag: ${{ steps.image_tag.outputs.semver }}   # reuse the version computed in step 1
+      - name: Build production image (local daemon only)
+        shell: powershell
+        run: |
+          docker build --target prod `
+            -t "$env:IMAGE_NAME:${{ steps.ver.outputs.image_tag }}" `
+            -t "$env:IMAGE_NAME:latest" .
 
       - name: Print deploy summary
         shell: powershell
         run: |
-          Write-Host "Pushed Docker image:"
-          Write-Host "${{ secrets.DOCKERHUB_USERNAME }}/test_cicd:${{ steps.image_tag.outputs.image_tag }}"
-          Write-Host "${{ secrets.DOCKERHUB_USERNAME }}/test_cicd:latest"
-          Write-Host "Git tag created: ${{ steps.image_tag.outputs.new_tag }}"
+          Write-Host "Built local images:"
+          Write-Host "$env:IMAGE_NAME:${{ steps.ver.outputs.image_tag }}"
+          Write-Host "$env:IMAGE_NAME:latest"
+          Write-Host "Version (from dev): ${{ steps.ver.outputs.version }}"
+
+  shadow-test:
+    runs-on: self-hosted          # deliberately NOT gating deploy
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: docker build --target test -t selection-demo:shadow .
+      - shell: bash
+        run: docker run --rm selection-demo:shadow pytest tests

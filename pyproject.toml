@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "selection-demo"
+version = "0.0.1"  # informational only -- real versioning lives in git tags (vX.Y.Z)
+description = "CI/CD demo: docstring-based test selection + diff-coverage gate"
+readme = "README.md"
+requires-python = ">=3.12"
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-cov", "pytest-sugar"]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --durations=10"
+testpaths = ["tests"]
+
+# Coverage runs inside the container (pytest at /app) but diff-cover runs on the
+# runner against the checkout. relative_files makes coverage record paths
+# relative to the rundir (/app) -> "src/quant_core/add.py", which matches the
+# git paths diff-cover compares against. The [paths] mapping additionally folds
+# any equivalent source roots onto the canonical "src/" prefix.
+[tool.coverage.run]
+relative_files = true
+
+[tool.coverage.paths]
+source = ["src/", "/app/src/", "*/src/"]
