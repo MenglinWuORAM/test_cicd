@@ -4,17 +4,23 @@ on:
     branches: [dev, main]
   push:
     branches: [dev]
+
+# All steps run under Windows PowerShell on the self-hosted Windows runner.
+defaults:
+  run:
+    shell: powershell
+
 jobs:
   guard-main-source:
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: self-hosted
     steps:
       - name: Reject non-dev sources
-        shell: bash
         run: |
-          if [ "${{ github.head_ref }}" != "dev" ]; then
-            echo "PRs to main must come from dev"; exit 1
-          fi
+          if ("${{ github.head_ref }}" -ne "dev") {
+            Write-Error "PRs to main must come from dev"
+            exit 1
+          }
 
   selective-tests:
     if: github.event_name == 'pull_request' && github.base_ref == 'dev'
@@ -22,36 +28,46 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
+
       - name: Build test image
-        shell: bash
         run: docker build --target test -t selection-demo:test .
+
       - name: Select tests
         id: select
-        shell: bash
         run: |
           git fetch origin ${{ github.base_ref }}
-          TARGETS=$(python scripts/select_tests.py origin/${{ github.base_ref }})
-          echo "Selected: $TARGETS"
-          echo "targets=$TARGETS" >> "$GITHUB_OUTPUT"
+          $Targets = python scripts/select_tests.py "origin/${{ github.base_ref }}"
+          # An annotation typo makes the script exit non-zero: fail fast.
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "select_tests.py failed (exit $LASTEXITCODE)"
+            exit $LASTEXITCODE
+          }
+          Write-Host "Selected: $Targets"
+          "targets=$Targets" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
       - name: Run selected tests with coverage
-        shell: bash
         run: |
-          T="${{ steps.select.outputs.targets }}"
-          if [ "$T" = "NONE" ]; then echo "Nothing selected"; exit 0; fi
-          # pwd -W yields a Windows path (C:/...) so Docker Desktop / the local
-          # daemon mounts it correctly; Git Bash would otherwise mangle $PWD.
-          docker run --rm -v "$(pwd -W)":/out selection-demo:test sh -c "\
-            pytest $T --cov=quant_core --cov-report=xml:/out/coverage.xml"
+          $T = "${{ steps.select.outputs.targets }}"
+          if ($T -eq "NONE") { Write-Host "Nothing selected"; exit 0 }
+          # $PWD is already a Windows path (C:\...), which Docker Desktop mounts
+          # directly. $T is a space-separated list; it is interpolated into the
+          # single sh -c string and the container's sh does the word-splitting,
+          # so pytest receives each target as its own argument.
+          docker run --rm -v "${PWD}:/out" selection-demo:test sh -c "pytest $T --cov=quant_core --cov-report=xml:/out/coverage.xml"
+
       - name: Diff coverage gate (50%)
-        shell: bash
         run: |
-          T="${{ steps.select.outputs.targets }}"
-          if [ "$T" = "NONE" ]; then exit 0; fi
+          $T = "${{ steps.select.outputs.targets }}"
+          if ($T -eq "NONE") { exit 0 }
           pip install diff-cover
           git fetch origin ${{ github.base_ref }}
-          diff-cover coverage.xml --compare-branch=origin/${{ github.base_ref }} \
-            --fail-under=50 --markdown-report diff_cover.md
-          cat diff_cover.md >> "$GITHUB_STEP_SUMMARY"
+          diff-cover coverage.xml --compare-branch="origin/${{ github.base_ref }}" --fail-under=50 --markdown-report diff_cover.md
+          $gate = $LASTEXITCODE
+          # Always publish the report (even when the gate is red, so the PR shows why).
+          if (Test-Path diff_cover.md) {
+            Get-Content diff_cover.md | Add-Content -Path $env:GITHUB_STEP_SUMMARY
+          }
+          exit $gate
 
   integration-full:
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
@@ -59,10 +75,8 @@ jobs:
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
-      - shell: bash
-        run: docker build --target test -t selection-demo:test .
-      - shell: bash
-        run: docker run --rm selection-demo:test pytest tests/integration
+      - run: docker build --target test -t selection-demo:test .
+      - run: docker run --rm selection-demo:test pytest tests/integration
 
   version-bump:
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'

@@ -3,6 +3,12 @@ on:
   schedule:
     - cron: "0 22 * * 1-5"   # 22:00 UTC, Mon-Fri
   workflow_dispatch: {}
+
+# All steps run under Windows PowerShell on the self-hosted Windows runner.
+defaults:
+  run:
+    shell: powershell
+
 jobs:
   full:
     runs-on: self-hosted
@@ -12,8 +18,6 @@ jobs:
         with:
           ref: dev
       - name: Build test image
-        shell: bash
         run: docker build --target test -t selection-demo:eod .
       - name: Run full suite (unit + integration)
-        shell: bash
         run: docker run --rm selection-demo:eod pytest tests

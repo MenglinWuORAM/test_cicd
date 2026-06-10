@@ -79,10 +79,18 @@ runner** against the checkout. Two things make the paths line up:
    `[tool.coverage.paths]` mapping), so `coverage.xml` records
    `src/quant_core/add.py` — exactly the path `git diff` reports.
 
-The volume mount uses **`$(pwd -W)`** (e.g. `C:/Users/.../repo`) rather than
-`$PWD`, because Git Bash would otherwise mangle the path Docker Desktop needs.
+Every workflow runs under **Windows PowerShell** (`defaults.run.shell:
+powershell`) — there is no `bash` dependency, which avoids the self-hosted
+Windows trap where `shell: bash` resolves to WSL's `bash.exe` instead of Git
+Bash. The volume mount uses PowerShell's **`${PWD}`**, which is already a
+Windows path (`C:\Users\...\repo`) that Docker Desktop mounts directly.
 
-> Verified locally: container `coverage.xml` contained
+The selected targets are a single space-separated string; the run-tests step
+interpolates it into one `sh -c "pytest $T ..."` argument and lets the
+container's `sh` do the word-splitting, so `pytest` receives each target
+separately.
+
+> Verified locally (in PowerShell): container `coverage.xml` contained
 > `filename="src/quant_core/add.py"`, and `diff-cover` matched it against the
 > `dev` branch with no `--src-roots` tweaking.
 
@@ -90,7 +98,7 @@ The volume mount uses **`$(pwd -W)`** (e.g. `C:/Users/.../repo`) rather than
 
 ## Run it locally (verified)
 
-```bash
+```powershell
 # full suite in the test image (what shadow/integration/EOD run)
 docker build --target test -t selection-demo:test .
 docker run --rm selection-demo:test pytest          # 21 passed (py3.12)
@@ -108,8 +116,8 @@ docker run --rm selection-demo:prod                 # "prod image ok: quant_core
 ## Live demo script
 
 ### 0. Setup (one-time)
-```bash
-git checkout -b dev && git push -u origin dev
+```powershell
+git checkout -b dev; git push -u origin dev
 ```
 Configure branch protection **manually** (this is intentionally *not* in YAML):
 * **dev** → require a PR **and** ✅ **Require branches to be up to date before

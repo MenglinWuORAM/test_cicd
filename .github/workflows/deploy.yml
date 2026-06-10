@@ -4,6 +4,12 @@ on:
     branches: [main]
 env:
   IMAGE_NAME: selection-demo
+
+# All steps run under Windows PowerShell on the self-hosted Windows runner.
+defaults:
+  run:
+    shell: powershell
+
 jobs:
   deploy:
     runs-on: self-hosted
@@ -15,7 +21,6 @@ jobs:
 
       - name: Resolve version from dev tag
         id: ver
-        shell: powershell
         run: |
           $Version = git describe --tags --abbrev=0 --match "v*"
           if ([string]::IsNullOrWhiteSpace($Version)) {
@@ -30,14 +35,12 @@ jobs:
           Write-Host "Docker image tag: $ImageTag"
 
       - name: Build production image (local daemon only)
-        shell: powershell
         run: |
           docker build --target prod `
             -t "$env:IMAGE_NAME:${{ steps.ver.outputs.image_tag }}" `
             -t "$env:IMAGE_NAME:latest" .
 
       - name: Print deploy summary
-        shell: powershell
         run: |
           Write-Host "Built local images:"
           Write-Host "$env:IMAGE_NAME:${{ steps.ver.outputs.image_tag }}"
@@ -48,7 +51,5 @@ jobs:
     runs-on: self-hosted          # deliberately NOT gating deploy
     steps:
       - uses: actions/checkout@v4
-      - shell: bash
-        run: docker build --target test -t selection-demo:shadow .
-      - shell: bash
-        run: docker run --rm selection-demo:shadow pytest tests
+      - run: docker build --target test -t selection-demo:shadow .
+      - run: docker run --rm selection-demo:shadow pytest tests
