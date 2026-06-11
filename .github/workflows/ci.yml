@@ -85,4 +85,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag_prefix: v
           release_branches: dev
-          default_update: patch
+          default_bump: false
