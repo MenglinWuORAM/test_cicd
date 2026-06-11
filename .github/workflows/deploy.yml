@@ -5,7 +5,7 @@ on:
 env:
   IMAGE_NAME: oram-main
 
-# All steps run under Windows PowerShell on the self-hosted Windows runner.
+# Default running on powershell.
 defaults:
   run:
     shell: powershell
@@ -34,7 +34,7 @@ jobs:
           Write-Host "Resolved version: $Version"
           Write-Host "Docker image tag: $ImageTag"
 
-      - name: Build production image (local daemon only)
+      - name: Build production image
         run: |
           docker build --target prod `
             -t "$env:IMAGE_NAME:${{ steps.ver.outputs.image_tag }}" `
@@ -48,7 +48,7 @@ jobs:
           Write-Host "Version (from dev): ${{ steps.ver.outputs.version }}"
 
   shadow-test:
-    runs-on: self-hosted          # deliberately NOT gating deploy
+    runs-on: self-hosted          
     steps:
       - uses: actions/checkout@v4
       - run: docker build --target test -t oram-main:shadow .

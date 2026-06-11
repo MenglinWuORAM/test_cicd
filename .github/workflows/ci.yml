@@ -5,12 +5,13 @@ on:
   push:
     branches: [dev]
 
+# Default running on powershell
 defaults:
   run:
     shell: powershell
 
 jobs:
-  guard-main-source:
+  guard-main:
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
     runs-on: self-hosted
     steps:
@@ -36,27 +37,20 @@ jobs:
         run: |
           git fetch origin ${{ github.base_ref }}
           $Targets = python scripts/select_tests.py "origin/${{ github.base_ref }}"
-          # An annotation typo makes the script exit non-zero: fail fast.
           if ($LASTEXITCODE -ne 0) {
             Write-Error "select_tests.py failed (exit $LASTEXITCODE)"
             exit $LASTEXITCODE
           }
           Write-Host "Selected: $Targets"
-          "targets=$Targets" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          "targets=$Targets" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append          
 
       - name: Run selected tests with coverage
         run: |
           $T = "${{ steps.select.outputs.targets }}"
-          if ($T -eq "NONE") { Write-Host "Nothing selected"; exit 0 }
-          # $PWD is already a Windows path (C:\...), which Docker Desktop mounts
-          # directly. $T is a space-separated list; it is interpolated into the
-          # single sh -c string and the container's sh does the word-splitting,
-          # so pytest receives each target as its own argument.
-          # Cover both the package and the tooling, so a scripts/ change has its
-          # own changed lines measured by the gate (otherwise they read as 0%).
-          docker run --rm -v "${PWD}:/out" oram-main:test sh -c "pytest $T --cov=quant_core --cov=scripts --cov-report=xml:/out/coverage.xml"
+          if ($T -eq "NONE") { Write-Host "No tests selected"; exit 0 }
+          docker run --rm -v "${PWD}:/out" oram-main:test sh -c "pytest $T --cov=src --cov=scripts --cov-report=xml:/out/coverage.xml"
 
-      - name: Diff coverage gate (50%)
+      - name: Diff coverage gate
         run: |
           $T = "${{ steps.select.outputs.targets }}"
           if ($T -eq "NONE") { exit 0 }
@@ -64,32 +58,31 @@ jobs:
           git fetch origin ${{ github.base_ref }}
           diff-cover coverage.xml --compare-branch="origin/${{ github.base_ref }}" --fail-under=50 --markdown-report diff_cover.md
           $gate = $LASTEXITCODE
-          # Always publish the report (even when the gate is red, so the PR shows why).
           if (Test-Path diff_cover.md) {
             Get-Content diff_cover.md | Add-Content -Path $env:GITHUB_STEP_SUMMARY
           }
           exit $gate
 
-  integration-full:
+  integration-tests:
     if: github.event_name == 'pull_request' && github.base_ref == 'main'
-    needs: guard-main-source
+    needs: guard-main
     runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
       - run: docker build --target test -t oram-main:test .
       - run: docker run --rm oram-main:test pytest tests/integration
 
-  version-bump:
+  version-update:
     if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
     runs-on: self-hosted
     permissions: { contents: write }
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - name: Bump version tag
+      - name: Update version tag
         uses: mathieudutour/github-tag-action@v6.2
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           tag_prefix: v
           release_branches: dev
-          default_bump: patch
+          default_update: patch
