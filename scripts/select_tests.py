@@ -17,7 +17,7 @@ The selection contract
 * An unannotated source file selects only its mirror. Other infra / docs / config changes contribute nothing.
 
 Tests:
-    test.tooling.test_select
+    test.tooling.test_select_tests
 """
 
 from __future__ import annotations

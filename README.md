@@ -62,13 +62,13 @@ become pytest `::` node ids. For example
   gate keep changes honest about what they touch.
 * **Tooling under `scripts/`** has no mirror, but it declares its own tests via
   the same `Tests:` block (annotation-only). So a change to `select_tests.py`
-  itself selects `tests/tooling/test_select.py` — the tooling tests its own
-  tooling.
+  itself selects `tests/tooling/test_select_tests.py` — the tooling tests its
+  own tooling.
 * Other infra / docs / config changes contribute **nothing** at PR level.
 
 Extraction is **AST-based** (`ast.get_docstring`), never regex over raw source.
 The pure classifier `select_target_tests()` lives in `scripts/select_tests.py` and is
-tested in `tests/tooling/test_select.py`.
+tested in `tests/tooling/test_select_tests.py`.
 
 ---
 
@@ -215,6 +215,6 @@ oram-main/
 │   └── helpers.py                 # NO Tests: block (discipline demo)
 └── tests/
     ├── unit/quant_core/           # mirrors (test_add/mul/helpers) + test_combo
-    ├── tooling/test_select.py     # tests the selection script itself
+    ├── tooling/test_select_tests.py  # tests the selection script itself
     └── integration/test_slow.py   # add+mul, time.sleep(2); real repos: external services
 ```
