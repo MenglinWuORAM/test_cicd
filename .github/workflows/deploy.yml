@@ -35,10 +35,7 @@ jobs:
           Write-Host "Docker image tag: $ImageTag"
 
       - name: Build production image
-        run: |
-          docker build --target prod `
-            -t "$env:IMAGE_NAME:${{ steps.ver.outputs.image_tag }}" `
-            -t "$env:IMAGE_NAME:latest" .
+        run: docker build --target prod -t "$env:IMAGE_NAME:${{ steps.ver.outputs.image_tag }}" -t "$env:IMAGE_NAME:latest" .
 
       - name: Print deploy summary
         run: |
