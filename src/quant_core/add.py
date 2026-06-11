@@ -16,7 +16,7 @@ def add(a, b):
 
 
 def add_many(values):
-    """Return the running sum of ``values`` (deliberately untested)."""
+    """Return the running sum of ``values``."""
     total = 0
     for v in values:
         total = add(total, v)
