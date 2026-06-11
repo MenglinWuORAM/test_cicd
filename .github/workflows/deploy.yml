@@ -35,13 +35,13 @@ jobs:
           Write-Host "Docker image tag: $ImageTag"
 
       - name: Build production image
-        run: docker build --target prod -t "$env:IMAGE_NAME:${{ steps.ver.outputs.image_tag }}" -t "$env:IMAGE_NAME:latest" .
+        run: docker build --target prod -t "${env:IMAGE_NAME}:${{ steps.ver.outputs.image_tag }}" -t "${env:IMAGE_NAME}:latest" .
 
       - name: Print deploy summary
         run: |
           Write-Host "Built local images:"
-          Write-Host "$env:IMAGE_NAME:${{ steps.ver.outputs.image_tag }}"
-          Write-Host "$env:IMAGE_NAME:latest"
+          Write-Host "${env:IMAGE_NAME}:${{ steps.ver.outputs.image_tag }}"
+          Write-Host "${env:IMAGE_NAME}:latest"
           Write-Host "Version (from dev): ${{ steps.ver.outputs.version }}"
 
   shadow-test:
